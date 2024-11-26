@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Parser</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; }
+        .result-window { border: 1px solid #ccc; padding: 10px; margin-top: 20px; width: 100%; max-height: 400px; overflow-y: auto; background-color: #f9f9f9; display: none; }
+        .input-field { width: 100%; max-width: 600px; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 5px; background-color: #fff; font-size: 14px; }
+        h1, h2 { color: #333; }
+        select, button { padding: 10px; margin: 10px 0; font-size: 16px; cursor: pointer; }
+        button { background-color: #4CAF50; color: white; border: none; border-radius: 5px; }
+        button:hover { background-color: #45a049; }
+    </style>
+</head>
+<body>
+
+<h1>Email Parser</h1>
+<img src="/images/logo.png" alt="Logo" width="100" height="100">
+<h2>Доступные команды</h2>
+<select id="commandSelect">
+    <option value="help">Help</option>
+    <option value="listTables">List Tables</option>
+    <option value="listRecords">List Records</option>
+    <option value="viewLog">View Log</option>
+    <option value="info">Info</option>
+</select>
+<button onclick="executeCommand()">Выполнить</button>
+
+<h2>Выбор задачи (Job)</h2>
+<label for="jobType">Тип задачи:</label>
+<select id="jobType">
+    <option value="">-- Выберите --</option>
+    <option value="imap">IMAP</option>
+    <option value="smtp">SMTP</option>
+</select>
+<div id="imapParams" style="display: none;">
+    <input type="email" id="email" placeholder="Email" class="input-field" required>
+    <input type="text" id="login" placeholder="Login" class="input-field" required>
+    <input type="password" id="password" placeholder="Password" class="input-field" required>
+</div>
+<div id="smtpParams" style="display: none;">
+    <input type="text" id="fileName" placeholder="Укажите ID или название файла" class="input-field" required>
+    <input type="email" id="recipient" placeholder="Адрес почты получателя" class="input-field" required>
+    <input type="text" id="subject" placeholder="Введите заголовок письма (опционально)" class="input-field">
+    <br>
+    <textarea id="content" placeholder="Введите содержание письма (опционально)" class="input-field" style="height: 150px;"></textarea>
+</div>
+<button onclick="executeJob()">Запустить Job</button>
+
+<h2>Результаты</h2>
+<div class="result-window" id="resultWindow"></div>
+
+
+<script>
+    const commandSelect = document.getElementById("commandSelect");
+    const resultWindow = document.getElementById("resultWindow");
+    const jobType = document.getElementById("jobType");
+    const imapParams = document.getElementById("imapParams");
+    const smtpParams = document.getElementById("smtpParams");
+
+    jobType.addEventListener("change", () => {
+        imapParams.style.display = jobType.value === "imap" ? "block" : "none";
+        smtpParams.style.display = jobType.value === "smtp" ? "block" : "none";
+    });
+
+    function executeCommand() {
+        const command = commandSelect.value;
+        fetch(`/email-parser/${command}`)
+            .then(response => response.text())
+            .then(data => {
+                displayResult(data);
+            })
+            .catch(error => {
+                console.error('Ошибка:', error);
+                displayResult("<p>Ошибка при выполнении команды.</p>");
+            });
+    }
+
+    function executeJob() {
+        const type = jobType.value;
+        if (!type) {
+            alert("Пожалуйста, выберите тип задачи (IMAP или SMTP).");
+            return;
+        }
+
+        const url = `/email-parser/selectJob`;
+        const params = new URLSearchParams({ type });
+
+        if (type === "imap") {
+            const email = document.getElementById("email").value;
+            const login = document.getElementById("login").value;
+            const password = document.getElementById("password").value;
+            if (!email || !login || !password) {
+                alert("Пожалуйста, заполните все поля для IMAP.");
+                return;
+            }
+            params.append("email", email);
+            params.append("login", login);
+            params.append("password", password);
+        } else if (type === "smtp") {
+            const fileName = document.getElementById("fileName").value;
+            const recipient = document.getElementById("recipient").value;
+            const subject = document.getElementById("subject").value;
+            const content = document.getElementById("content").value;
+            if (!fileName || !recipient) {
+                alert("Пожалуйста, заполните ID файла и адрес получателя для SMTP.");
+                return;
+            }
+            params.append("fileName", fileName);
+            params.append("recipient", recipient);
+            params.append("subject", subject);
+            params.append("content", content);
+        }
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
+        })
+            .then(response => response.text())
+            .then(data => {
+                displayResult(data);
+            })
+            .catch(error => {
+                console.error("Ошибка:", error);
+                displayResult("<p>Ошибка при запуске задачи.</p>");
+            });
+    }
+
+    function displayResult(data) {
+        resultWindow.innerHTML = data;
+        resultWindow.style.display = "block";
+    }
+</script>
+
+</body>
+</html>
